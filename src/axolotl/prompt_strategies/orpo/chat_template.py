@@ -276,3 +276,15 @@ def argilla(cfg, **kwargs):  # pylint: disable=possibly-unused-variable,unused-a
         return res
 
     return transform_fn
+
+def raw(cfg, **kwargs):  # pylint: disable=possibly-unused-variable,unused-argument
+    def transform_fn(sample, tokenizer=None):
+        res = {}
+
+        res["prompt"] = sample["prompt"]
+        res["chosen"] = sample["chosen"]
+        res["rejected"] = sample["rejected"]
+
+        return res
+
+    return transform_fn
