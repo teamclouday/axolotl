@@ -116,6 +116,9 @@ def train(
     if cfg.unfrozen_parameters:
         freeze_layers_except(model, cfg.unfrozen_parameters)
 
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
     trainer = setup_trainer(
         cfg,
         train_dataset,
