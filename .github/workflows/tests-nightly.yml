@@ -1,19 +1,8 @@
-name: Tests
+name: Tests Nightly against upstream main
 on:
-  # check on push/merge to main, PRs, and manual triggers
-  push:
-    branches:
-      - "main"
-    paths:
-      - '**.py'
-      - 'requirements.txt'
-      - '.github/workflows/*.yml'
-  pull_request:
-      paths:
-       - '**.py'
-       - 'requirements.txt'
-       - '.github/workflows/*.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day
 
 jobs:
   pre-commit:
@@ -53,6 +42,12 @@ jobs:
         run: |
           pip3 install torch==${{ matrix.pytorch_version }} --index-url https://download.pytorch.org/whl/cpu
 
+      - name: Update requirements.txt
+        run: |
+          sed -i 's#^transformers.*#transformers @ git+https://github.com/huggingface/transformers.git@main#' requirements.txt
+          sed -i 's#^peft.*#peft @ git+https://github.com/huggingface/peft.git@main#' requirements.txt
+          sed -i 's#^accelerate.*#accelerate @ git+https://github.com/huggingface/accelerate.git@main#' requirements.txt
+
       - name: Install dependencies
         run: |
           pip3 install --upgrade pip
@@ -85,18 +80,21 @@ jobs:
             pytorch: 2.3.1
             num_gpus: 1
             axolotl_extras: mamba-ssm
+            nightly_build: "true"
           - cuda: 121
             cuda_version: 12.1.1
             python_version: "3.11"
             pytorch: 2.3.1
             num_gpus: 1
             axolotl_extras: mamba-ssm
+            nightly_build: "true"
           - cuda: 124
             cuda_version: 12.4.1
             python_version: "3.11"
             pytorch: 2.4.0
             num_gpus: 1
             axolotl_extras:
+            nightly_build: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -116,6 +114,7 @@ jobs:
           echo "AXOLOTL_EXTRAS=${{ matrix.axolotl_extras}}" >> $GITHUB_ENV
           echo "CUDA=${{ matrix.cuda }}" >> $GITHUB_ENV
           echo "N_GPUS=${{ matrix.num_gpus }}" >> $GITHUB_ENV
+          echo "NIGHTLY_BUILD=${{ matrix.nightly_build }}" >> $GITHUB_ENV
       - name: Run tests job on Modal
         run: |
           modal run cicd.tests

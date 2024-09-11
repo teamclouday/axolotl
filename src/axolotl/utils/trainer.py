@@ -217,6 +217,24 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset):
             desc="Dropping Long Sequences",
         )
 
+    # drop samples with where the number of elements with labels not equal to -100 is zero
+    def drop_no_trainable_tokens(sample):
+        return np.sum(np.array(sample["labels"]) != -100) > 0
+
+    train_dataset = train_dataset.filter(
+        drop_no_trainable_tokens,
+        num_proc=cfg.dataset_processes,
+        load_from_cache_file=not cfg.is_preprocess,
+        desc="Drop Samples with Zero Trainable Tokens",
+    )
+    if eval_dataset:
+        eval_dataset = eval_dataset.filter(
+            drop_no_trainable_tokens,
+            num_proc=cfg.dataset_processes,
+            load_from_cache_file=not cfg.is_preprocess,
+            desc="Drop Samples with Zero Trainable Tokens",
+        )
+
     if cfg.group_by_length:
         train_dataset = train_dataset.map(
             add_length,
@@ -339,7 +357,7 @@ def calculate_total_num_steps(cfg, train_dataset, update=True):
                 main_process_only=True,
             )
         else:
-            if cfg.flash_attention:
+            if cfg.flash_attention and not cfg.multipack_real_batches:
                 sampler_batch_size = 1
                 batch_max_len = cfg.micro_batch_size * cfg.sequence_len
             else:
@@ -399,12 +417,16 @@ def setup_torch_compile_env(cfg):
 
 
 def setup_deepspeed_env(cfg, stage=None):
+    from transformers.integrations.deepspeed import HfTrainerDeepSpeedConfig
+
     os.environ["ACCELERATE_USE_DEEPSPEED"] = "true"
     os.environ["ACCELERATE_DEEPSPEED_CONFIG_FILE"] = cfg.deepspeed
     if stage:
         os.environ["ACCELERATE_DEEPSPEED_ZERO_STAGE"] = str(stage)
         if stage == 3:
             os.environ["ACCELERATE_DEEPSPEED_ZERO3_INIT"] = "true"
+    # If we don't assign this, it doesn't actually get set in the accelerate weakref
+    _ = HfTrainerDeepSpeedConfig(cfg.deepspeed)
 
 
 def setup_fsdp_envs(cfg):
