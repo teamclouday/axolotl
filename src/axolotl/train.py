@@ -18,6 +18,7 @@ from peft import PeftModel
 from pkg_resources import get_distribution  # type: ignore
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
+from huggingface_hub import upload_folder
 
 from axolotl.common.cli import TrainerCliArgs
 from axolotl.core.tokenizer_utils import fix_untrained_tokens
@@ -264,7 +265,8 @@ def train(
             pass
     elif cfg.hub_model_id:
         # defensively push to the hub to ensure the model card is updated
-        trainer.push_to_hub()
+        trainer.save_model(_internal_call=True)
+        upload_folder(repo_id=cfg.hub_model_id, folder_path=trainer.args.output_dir, commit_message="End of training", run_as_future=False, ignore_patterns=["_*", "checkpoint-*"], revision=cfg.hub_model_revision)
 
     return model, tokenizer
 
